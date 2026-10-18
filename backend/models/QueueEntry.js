@@ -42,26 +42,47 @@ const queueEntrySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// One token number per queue
+// ==========================================
+// ONE TOKEN NUMBER PER QUEUE
+// ==========================================
+
 queueEntrySchema.index(
-  { queue: 1, tokenNumber: 1 },
-  { unique: true }
+  {
+    queue: 1,
+    tokenNumber: 1
+  },
+  {
+    unique: true
+  }
 );
 
-// One active entry per user per queue
+// ==========================================
+// ONE ACTIVE ENTRY PER USER PER QUEUE
+// ==========================================
+
 queueEntrySchema.index(
-  { queue: 1, user: 1 },
+  {
+    queue: 1,
+    user: 1
+  },
   {
     unique: true,
     partialFilterExpression: {
-      status: { $in: ["waiting", "serving"] }
+      status: {
+        $in: ["waiting", "serving"]
+      }
     }
   }
 );
 
-// Only one serving customer per queue
+// ==========================================
+// ONLY ONE SERVING CUSTOMER PER QUEUE
+// ==========================================
+
 queueEntrySchema.index(
-  { queue: 1 },
+  {
+    queue: 1
+  },
   {
     unique: true,
     partialFilterExpression: {
@@ -69,6 +90,29 @@ queueEntrySchema.index(
     }
   }
 );
+
+// ==========================================
+// ONE ACTIVE QUEUE PER USER (GLOBAL)
+// ==========================================
+
+queueEntrySchema.index(
+  {
+    user: 1
+  },
+  {
+    unique: true,
+    name: "unique_active_queue_per_user",
+    partialFilterExpression: {
+      status: {
+        $in: ["waiting", "serving"]
+      }
+    }
+  }
+);
+
+// ==========================================
+// EXPORT MODEL
+// ==========================================
 
 const QueueEntry = mongoose.model(
   "QueueEntry",

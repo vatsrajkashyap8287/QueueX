@@ -26,6 +26,15 @@ import {
 } from "../services/queueConsistencyService.js";
 
 // ==========================================
+// CONSTANTS
+// ==========================================
+
+const ACTIVE_ENTRY_STATUSES = [
+  "waiting",
+  "serving"
+];
+
+// ==========================================
 // RESPONSE HELPERS
 // ==========================================
 
@@ -58,7 +67,8 @@ const handleQueueOperationError = (
   if (error.code === 11000) {
     return res.status(409).json({
       success: false,
-      message: "Queue state changed. Please try again."
+      message:
+        "Queue state changed. Please try again."
     });
   }
 
@@ -66,6 +76,46 @@ const handleQueueOperationError = (
     success: false,
     message: fallbackMessage
   });
+};
+
+// ==========================================
+// ACTIVE QUEUE CONFLICT HELPER
+// ==========================================
+
+const getActiveQueueConflict = async (
+  userId,
+  requestedQueueId
+) => {
+  const activeEntry = await QueueEntry.findOne({
+    user: userId,
+    status: {
+      $in: ACTIVE_ENTRY_STATUSES
+    }
+  }).populate("queue", "name");
+
+  if (!activeEntry) {
+    return null;
+  }
+
+  const existingQueueId =
+    activeEntry.queue?._id?.toString() ||
+    activeEntry.queue?.toString();
+
+  if (
+    existingQueueId ===
+    requestedQueueId.toString()
+  ) {
+    return "You already joined this queue";
+  }
+
+  const existingQueueName =
+    activeEntry.queue?.name ||
+    "another queue";
+
+  return (
+    `You already have an active token in "${existingQueueName}". ` +
+    "Please finish or leave your current queue before joining another."
+  );
 };
 
 // ==========================================
@@ -167,6 +217,7 @@ export const getAllQueues = async (req, res) => {
 
 // ==========================================
 // JOIN QUEUE (USER)
+// ONE ACTIVE QUEUE PER USER
 // PARTIAL-FAILURE RECOVERY
 // ==========================================
 
@@ -200,21 +251,26 @@ export const joinQueue = async (req, res) => {
           );
         }
 
-        const existingEntry =
-          await QueueEntry.findOne({
-            queue: queueId,
-            user: req.user._id,
-            status: {
-              $in: ["waiting", "serving"]
-            }
-          });
+        // ----------------------------------
+        // GLOBAL ACTIVE QUEUE CHECK
+        // ----------------------------------
 
-        if (existingEntry) {
+        const activeQueueConflict =
+          await getActiveQueueConflict(
+            req.user._id,
+            queueId
+          );
+
+        if (activeQueueConflict) {
           return errorResult(
             409,
-            "You already joined this queue"
+            activeQueueConflict
           );
         }
+
+        // ----------------------------------
+        // ISSUE QUEUE-SPECIFIC TOKEN
+        // ----------------------------------
 
         const updatedQueue =
           await Queue.findOneAndUpdate(
@@ -239,16 +295,48 @@ export const joinQueue = async (req, res) => {
           );
         }
 
-        const entry = await QueueEntry.create({
-          queue: queueId,
-          user: req.user._id,
-          tokenNumber: updatedQueue.lastIssuedToken
-        });
+        // ----------------------------------
+        // CREATE MONGODB ENTRY
+        // ----------------------------------
+
+        let entry;
+
+        try {
+          entry = await QueueEntry.create({
+            queue: queueId,
+            user: req.user._id,
+            tokenNumber:
+              updatedQueue.lastIssuedToken
+          });
+        } catch (createError) {
+          if (createError.code === 11000) {
+            const conflict =
+              await getActiveQueueConflict(
+                req.user._id,
+                queueId
+              );
+
+            return errorResult(
+              409,
+              conflict ||
+                "Queue state changed. Please try again."
+            );
+          }
+
+          throw createError;
+        }
+
+        // ----------------------------------
+        // ADD ENTRY TO REDIS FIFO
+        // ----------------------------------
 
         let redisRecovered = false;
 
         try {
-          await addToQueue(queueId, entry._id);
+          await addToQueue(
+            queueId,
+            entry._id
+          );
         } catch (redisError) {
           const recovery =
             await repairQueueAfterFailure(
@@ -266,6 +354,10 @@ export const joinQueue = async (req, res) => {
 
           redisRecovered = true;
         }
+
+        // ----------------------------------
+        // GET USER POSITION
+        // ----------------------------------
 
         let position = null;
 
@@ -305,11 +397,31 @@ export const joinQueue = async (req, res) => {
     console.error("Join Queue Error:", error);
 
     if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message:
-          "You already have an active queue entry"
-      });
+      try {
+        const conflict =
+          await getActiveQueueConflict(
+            req.user._id,
+            queueId
+          );
+
+        return res.status(409).json({
+          success: false,
+          message:
+            conflict ||
+            "You already have an active queue entry"
+        });
+      } catch (lookupError) {
+        console.error(
+          "Active Conflict Lookup Error:",
+          lookupError
+        );
+
+        return res.status(409).json({
+          success: false,
+          message:
+            "You already have an active queue entry"
+        });
+      }
     }
 
     return handleQueueOperationError(
@@ -329,7 +441,7 @@ export const getMyQueues = async (req, res) => {
     const entries = await QueueEntry.find({
       user: req.user._id,
       status: {
-        $in: ["waiting", "serving"]
+        $in: ACTIVE_ENTRY_STATUSES
       }
     }).populate(
       "queue",
@@ -1035,7 +1147,7 @@ export const updateQueueStatus = async (req, res) => {
             await QueueEntry.countDocuments({
               queue: queueId,
               status: {
-                $in: ["waiting", "serving"]
+                $in: ACTIVE_ENTRY_STATUSES
               }
             });
 
