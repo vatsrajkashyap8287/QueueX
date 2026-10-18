@@ -1,0 +1,319 @@
+/* @import "tailwindcss";
+
+:root {
+  font-family: Inter, Arial, sans-serif;
+  color: #f8fafc;
+  background: #0f172a;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button {
+  cursor: pointer;
+} */
+
+@import "tailwindcss";
+
+/* =========================================
+   QUEUEX PREMIUM DESIGN SYSTEM
+========================================= */
+
+:root {
+  font-family:
+    "Inter",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+
+  color: #f8fafc;
+  background: #080d1d;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --qx-bg: #080d1d;
+  --qx-surface: #111a30;
+  --qx-surface-hover: #19243d;
+
+  --qx-primary: #6366f1;
+  --qx-secondary: #8b5cf6;
+  --qx-accent: #22d3ee;
+
+  --qx-success: #34d399;
+  --qx-warning: #fbbf24;
+  --qx-danger: #fb7185;
+
+  --qx-border: rgba(148, 163, 184, 0.12);
+
+  --qx-text: #f8fafc;
+  --qx-muted: #94a3b8;
+}
+
+/* =========================================
+   BASE
+========================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+
+  background: var(--qx-bg);
+  color: var(--qx-text);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.4);
+  color: white;
+}
+
+/* =========================================
+   CUSTOM SCROLLBAR
+========================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b1120;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6366f1;
+}
+
+/* =========================================
+   PREMIUM BACKGROUND
+========================================= */
+
+.qx-background {
+  position: relative;
+
+  background:
+    radial-gradient(
+      ellipse at 85% 5%,
+      rgba(99, 102, 241, 0.12),
+      transparent 35%
+    ),
+    radial-gradient(
+      ellipse at 5% 75%,
+      rgba(34, 211, 238, 0.06),
+      transparent 35%
+    ),
+    #080d1d;
+}
+
+/* =========================================
+   GLASS CARDS
+========================================= */
+
+.qx-glass {
+  background: rgba(17, 26, 48, 0.84);
+
+  border: 1px solid rgba(148, 163, 184, 0.12);
+
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* =========================================
+   PREMIUM CARDS
+========================================= */
+
+.qx-card {
+  background: linear-gradient(
+    145deg,
+    rgba(24, 35, 60, 0.95),
+    rgba(13, 21, 40, 0.98)
+  );
+
+  border: 1px solid rgba(148, 163, 184, 0.12);
+
+  border-radius: 20px;
+
+  box-shadow:
+    0 10px 35px rgba(0, 0, 0, 0.12);
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.qx-card:hover {
+  transform: translateY(-3px);
+
+  border-color: rgba(99, 102, 241, 0.3);
+
+  box-shadow:
+    0 15px 45px rgba(0, 0, 0, 0.2);
+}
+
+/* =========================================
+   GRADIENT TEXT
+========================================= */
+
+.qx-gradient-text {
+  background: linear-gradient(
+    120deg,
+    #818cf8,
+    #a78bfa,
+    #22d3ee
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  color: transparent;
+}
+
+/* =========================================
+   BUTTONS
+========================================= */
+
+.qx-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 12px 20px;
+
+  border: 0;
+  border-radius: 12px;
+
+  color: white;
+  font-weight: 600;
+
+  background: linear-gradient(
+    135deg,
+    #6366f1,
+    #8b5cf6
+  );
+
+  box-shadow:
+    0 6px 22px rgba(99, 102, 241, 0.2);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+}
+
+.qx-btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+
+  filter: brightness(1.1);
+
+  box-shadow:
+    0 10px 28px rgba(99, 102, 241, 0.35);
+}
+
+.qx-btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.qx-btn-primary:disabled {
+  opacity: 0.5;
+}
+
+/* =========================================
+   STATUS DOT
+========================================= */
+
+.qx-live-dot {
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: #34d399;
+
+  box-shadow:
+    0 0 12px rgba(52, 211, 153, 0.7);
+}
+
+/* =========================================
+   ANIMATIONS
+========================================= */
+
+@keyframes qxFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.qx-fade-up {
+  animation: qxFadeUp 0.45s ease both;
+}
+
+/* =========================================
+   ACCESSIBILITY
+========================================= */
+
+:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .qx-card:hover,
+  .qx-btn-primary:hover {
+    transform: none;
+  }
+}
