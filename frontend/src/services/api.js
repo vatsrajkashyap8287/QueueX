@@ -4,13 +4,35 @@ import axios from "axios";
 // API CONFIGURATION
 // ==========================================
 
-const api = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_URL ||
-    "http://localhost:5000/api",
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000/api";
 
-  timeout: 15000,
+export const SERVER_BASE_URL =
+  API_BASE_URL.replace(/\/api\/?$/, "");
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+
+  // Render Free instances may require
+  // additional time during a cold start.
+  timeout: 90000,
 });
+
+// ==========================================
+// SERVER HEALTH CHECK
+// ==========================================
+
+export const checkServerHealth = async () => {
+  const response = await axios.get(
+    `${SERVER_BASE_URL}/`,
+    {
+      timeout: 90000,
+    }
+  );
+
+  return response.data;
+};
 
 // ==========================================
 // REQUEST INTERCEPTOR
@@ -37,7 +59,6 @@ api.interceptors.response.use(
   (response) => response,
 
   (error) => {
-    // Request cancelled by browser / AbortController.
     if (error.code === "ERR_CANCELED") {
       return Promise.reject(error);
     }
@@ -54,9 +75,12 @@ api.interceptors.response.use(
     // ======================================
 
     if (!error.response) {
-      if (error.code === "ECONNABORTED") {
+      if (
+        error.code === "ECONNABORTED" ||
+        error.code === "ETIMEDOUT"
+      ) {
         message =
-          "Request timed out. Please try again.";
+          "The server is taking longer than expected. Please try again.";
       } else {
         message =
           "Unable to connect to the server. Check your internet connection or try again later.";
@@ -71,7 +95,6 @@ api.interceptors.response.use(
       typeof backendMessage === "string" &&
       backendMessage.trim()
     ) {
-      // Preserve useful backend messages.
       message = backendMessage;
     } else {
       switch (status) {
@@ -123,11 +146,8 @@ api.interceptors.response.use(
       }
     }
 
-    // Preserve original Axios error details while
-    // exposing a consistent message to components.
     error.userMessage = message;
 
-    // Useful during development.
     if (import.meta.env.DEV) {
       console.error("[QueueX API Error]", {
         method: error.config?.method?.toUpperCase(),

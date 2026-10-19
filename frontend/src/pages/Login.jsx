@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 
 import {
   Zap,
@@ -12,12 +20,14 @@ import {
   ArrowRight,
   Sparkles,
   ShieldCheck,
-  Ticket,
-  Clock3,
   CheckCircle2,
+  Server,
 } from "lucide-react";
 
-import api from "../services/api";
+import api, {
+  checkServerHealth,
+} from "../services/api";
+
 import { useAuth } from "../context/AuthContext";
 
 // ==========================================
@@ -41,12 +51,18 @@ function Brand() {
       className={`inline-flex items-center gap-3 rounded-xl ${FOCUS}`}
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-cyan-500 shadow-lg shadow-indigo-500/25">
-        <Zap size={25} className="fill-white text-white" />
+        <Zap
+          size={25}
+          className="fill-white text-white"
+        />
       </div>
 
       <div>
         <h2 className="text-[27px] font-extrabold tracking-tight text-white">
-          Queue<span className="qx-gradient-text">X</span>
+          Queue
+          <span className="qx-gradient-text">
+            X
+          </span>
         </h2>
 
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -63,6 +79,7 @@ function Brand() {
 
 function Login() {
   const navigate = useNavigate();
+
   const { login } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -71,8 +88,79 @@ function Login() {
   });
 
   const [error, setError] = useState("");
+
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [serverStatus, setServerStatus] =
+    useState("checking");
+
+  const [serverMessage, setServerMessage] =
+    useState(
+      "Connecting to QueueX server..."
+    );
+
+  const mountedRef = useRef(true);
+
+  // ========================================
+  // CHECK BACKEND AVAILABILITY
+  // ========================================
+
+  const wakeUpServer = async () => {
+    setServerStatus("checking");
+
+    setServerMessage(
+      "Connecting to QueueX server..."
+    );
+
+    try {
+      const response =
+        await checkServerHealth();
+
+      if (!mountedRef.current) return;
+
+      if (response?.success !== true) {
+        throw new Error(
+          "Unexpected server response"
+        );
+      }
+
+      setServerStatus("ready");
+
+      setServerMessage(
+        "Server connected successfully"
+      );
+    } catch (err) {
+      if (!mountedRef.current) return;
+
+      console.error(
+        "QueueX Server Connection Error:",
+        err.message
+      );
+
+      setServerStatus("error");
+
+      setServerMessage(
+        "Server is taking longer than expected. Please retry."
+      );
+    }
+  };
+
+  // ========================================
+  // AUTOMATIC SERVER WAKE-UP
+  // ========================================
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    wakeUpServer();
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // ========================================
   // HANDLE INPUT
@@ -98,18 +186,29 @@ function Login() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (loading) return;
+    if (
+      loading ||
+      serverStatus !== "ready"
+    ) {
+      return;
+    }
 
     setError("");
     setLoading(true);
 
     try {
-      const response = await api.post("/auth/login", {
-        email: formData.email.trim(),
-        password: formData.password,
-      });
+      const response = await api.post(
+        "/auth/login",
+        {
+          email: formData.email.trim(),
+          password: formData.password,
+        }
+      );
 
-      login(response.data.user, response.data.token);
+      login(
+        response.data.user,
+        response.data.token
+      );
 
       navigate("/dashboard", {
         replace: true,
@@ -126,21 +225,81 @@ function Login() {
   };
 
   // ========================================
+  // SERVER STATUS UI
+  // ========================================
+
+  const renderServerStatus = () => {
+    if (serverStatus === "checking") {
+      return (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3.5 text-xs text-amber-200">
+          <RefreshCw
+            size={17}
+            className="shrink-0 animate-spin"
+          />
+
+          <div>
+            <p className="font-semibold">
+              Starting QueueX Server
+            </p>
+
+            <p className="mt-1 text-amber-200/70">
+              {serverMessage}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (serverStatus === "error") {
+      return (
+        <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 p-3.5 text-xs text-rose-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={17} />
+
+            <p className="font-semibold">
+              Server Connection Failed
+            </p>
+          </div>
+
+          <p className="mt-2 leading-5 text-rose-200/80">
+            {serverMessage}
+          </p>
+
+          <button
+            type="button"
+            onClick={wakeUpServer}
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-rose-500/20 px-3 py-2 font-semibold transition hover:bg-rose-500/30"
+          >
+            <RefreshCw size={14} />
+            Retry Connection
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-300">
+        <CheckCircle2 size={17} />
+
+        {serverMessage}
+      </div>
+    );
+  };
+
+  // ========================================
   // UI
   // ========================================
 
   return (
     <div className="relative flex min-h-screen min-w-0 items-center justify-center overflow-hidden bg-[#080d1d] px-4 py-10 text-white sm:px-6">
 
-      {/* BACKGROUND GLOWS */}
+      {/* BACKGROUND */}
 
       <div className="pointer-events-none absolute -left-32 -top-32 h-[450px] w-[450px] rounded-full bg-indigo-600/15 blur-3xl" />
 
       <div className="pointer-events-none absolute -bottom-40 -right-32 h-[450px] w-[450px] rounded-full bg-violet-600/15 blur-3xl" />
 
       <div className="pointer-events-none absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-500/5 blur-3xl" />
-
-      {/* MAIN CONTAINER */}
 
       <main className="relative z-10 w-full max-w-[460px] min-w-0">
 
@@ -150,7 +309,7 @@ function Login() {
           <Brand />
         </div>
 
-        {/* WELCOME HEADER */}
+        {/* HEADER */}
 
         <div className="mb-8 text-center">
 
@@ -161,12 +320,14 @@ function Login() {
 
           <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             Welcome back
-            <span className="text-indigo-400">.</span>
+            <span className="text-indigo-400">
+              .
+            </span>
           </h1>
 
           <p className="mt-3 text-sm leading-7 text-slate-400">
-            Sign in to manage your tokens and track
-            your queues in real time.
+            Sign in to manage your tokens and
+            track your queues in real time.
           </p>
 
         </div>
@@ -174,6 +335,12 @@ function Login() {
         {/* LOGIN CARD */}
 
         <div className="overflow-hidden rounded-[28px] border border-white/[0.09] bg-[#111a30]/90 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
+
+          {/* SERVER CONNECTION */}
+
+          <div className="mb-6">
+            {renderServerStatus()}
+          </div>
 
           <form
             onSubmit={handleSubmit}
@@ -185,14 +352,14 @@ function Login() {
             {error && (
               <div
                 role="alert"
-                className="flex min-w-0 items-start gap-3 rounded-xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-300"
+                className="flex items-start gap-3 rounded-xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-300"
               >
                 <AlertTriangle
                   size={18}
                   className="mt-0.5 shrink-0"
                 />
 
-                <span className="min-w-0 break-words">
+                <span className="break-words">
                   {error}
                 </span>
               </div>
@@ -201,7 +368,6 @@ function Login() {
             {/* EMAIL */}
 
             <div>
-
               <label
                 htmlFor="email"
                 className="mb-2 block text-sm font-semibold text-slate-300"
@@ -210,7 +376,6 @@ function Login() {
               </label>
 
               <div className="relative">
-
                 <Mail
                   size={18}
                   className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
@@ -231,15 +396,12 @@ function Login() {
                   disabled={loading}
                   className={INPUT}
                 />
-
               </div>
-
             </div>
 
             {/* PASSWORD */}
 
             <div>
-
               <label
                 htmlFor="password"
                 className="mb-2 block text-sm font-semibold text-slate-300"
@@ -248,7 +410,6 @@ function Login() {
               </label>
 
               <div className="relative">
-
                 <Lock
                   size={18}
                   className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
@@ -283,7 +444,6 @@ function Login() {
                       ? "Hide password"
                       : "Show password"
                   }
-                  aria-pressed={showPassword}
                   disabled={loading}
                   className={`absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white ${FOCUS}`}
                 >
@@ -293,23 +453,28 @@ function Login() {
                     <Eye size={18} />
                   )}
                 </button>
-
               </div>
-
             </div>
 
             {/* LOGIN BUTTON */}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={
+                loading ||
+                serverStatus !== "ready"
+              }
               className={`mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all duration-200 enabled:hover:-translate-y-0.5 enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS}`}
             >
-
               {loading ? (
                 <RefreshCw
                   size={18}
-                  className="animate-spin motion-reduce:animate-none"
+                  className="animate-spin"
+                />
+              ) : serverStatus === "checking" ? (
+                <RefreshCw
+                  size={18}
+                  className="animate-spin"
                 />
               ) : (
                 <ArrowRight size={18} />
@@ -317,8 +482,11 @@ function Login() {
 
               {loading
                 ? "Signing you in..."
+                : serverStatus === "checking"
+                ? "Connecting to Server..."
+                : serverStatus === "error"
+                ? "Server Unavailable"
                 : "Sign In to QueueX"}
-
             </button>
 
           </form>
@@ -329,7 +497,6 @@ function Login() {
 
         <p className="mt-7 text-center text-sm text-slate-400">
           New to QueueX?{" "}
-
           <Link
             to="/register"
             className={`font-bold text-indigo-300 transition hover:text-cyan-300 ${FOCUS}`}
@@ -357,7 +524,6 @@ function Login() {
         </p>
 
       </main>
-
     </div>
   );
 }
